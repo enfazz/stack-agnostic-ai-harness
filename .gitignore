@@ -1,0 +1,9 @@
+# The harness is source-only (markdown, shell, json). Ignore local cruft.
+.DS_Store
+*.log
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+.idea/
+.vscode/

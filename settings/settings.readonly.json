@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "defaultMode": "plan",
+    "allow": [
+      "Read(**)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/*.pem)",
+      "Read(**/id_rsa)",
+      "Read(**/id_ed25519)",
+      "Read(**/*service-account*.json)",
+      "Read(**/secrets/**)",
+      "Read(**/.ssh/**)",
+      "Read(**/.aws/**)",
+      "Edit(**/.harness/guard-overrides.conf)",
+      "Write(**/.harness/guard-overrides.conf)"
+    ]
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "ai-harness",
+  "owner": {
+    "name": "Kiryl Novitskiy"
+  },
+  "plugins": [
+    {
+      "name": "ai-harness",
+      "source": "./",
+      "description": "Portable, stack- and domain-agnostic engineering harness for contributing code, docs, tests, and CI/CD to any project with minimal involvement.",
+      "category": "workflow",
+      "keywords": ["harness", "ci", "tests", "docs", "review", "automation", "polyglot"]
+    }
+  ]
+}

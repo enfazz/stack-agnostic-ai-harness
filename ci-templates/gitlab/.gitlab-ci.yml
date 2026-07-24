@@ -1,0 +1,25 @@
+# AI harness · generic gate pipeline (GitLab CI)
+# `setup-cicd` fills the {{PLACEHOLDERS}} with detected commands and sets a
+# suitable `image:` for the stack, then removes unused jobs.
+stages: [gate]
+
+default:
+  image: "{{IMAGE}}"   # e.g. node:lts, python:3.12, golang:1.22, rust:latest
+
+variables:
+  GIT_DEPTH: "20"
+
+.gate:
+  stage: gate
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "{{DEFAULT_BRANCH}}"
+
+install-and-verify:
+  extends: .gate
+  script:
+    - {{INSTALL}}
+    - {{LINT}}
+    - {{TYPECHECK}}
+    - {{TEST}}
+    - {{BUILD}}

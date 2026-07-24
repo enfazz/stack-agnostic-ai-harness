@@ -1,0 +1,24 @@
+# AI harness · generic gate pipeline (Bitbucket Pipelines)
+# `setup-cicd` fills the {{PLACEHOLDERS}} with detected commands and sets a
+# suitable `image:` for the stack, then removes unused steps.
+image: "{{IMAGE}}"   # e.g. node:lts, python:3.12, golang:1.22
+
+definitions:
+  steps:
+    - step: &gate
+        name: Gate
+        caches: []
+        script:
+          - {{INSTALL}}
+          - {{LINT}}
+          - {{TYPECHECK}}
+          - {{TEST}}
+          - {{BUILD}}
+
+pipelines:
+  pull-requests:
+    "**":
+      - step: *gate
+  branches:
+    "{{DEFAULT_BRANCH}}":
+      - step: *gate

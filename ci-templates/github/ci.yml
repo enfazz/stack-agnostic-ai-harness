@@ -1,0 +1,38 @@
+# AI harness · generic gate workflow (GitHub Actions)
+# `setup-cicd` fills the {{PLACEHOLDERS}} with commands detected for this repo
+# and adds the matching language runtime setup, then removes unused steps.
+name: CI
+
+on:
+  push:
+    branches: ["{{DEFAULT_BRANCH}}"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # --- language runtime (setup-cicd picks the ones this repo needs) ---
+      # - uses: actions/setup-node@v4
+      #   with: { node-version: "lts/*", cache: "npm" }
+      # - uses: actions/setup-python@v5
+      #   with: { python-version: "3.x" }
+      # - uses: actions/setup-go@v5
+      #   with: { go-version: "stable" }
+
+      - name: Install
+        run: {{INSTALL}}
+      - name: Lint
+        run: {{LINT}}
+      - name: Typecheck
+        run: {{TYPECHECK}}
+      - name: Test
+        run: {{TEST}}
+      - name: Build
+        run: {{BUILD}}

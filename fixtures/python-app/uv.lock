@@ -1,0 +1,1 @@
+# fixture lockfile marker (empty on purpose — detection reads presence, not content)
