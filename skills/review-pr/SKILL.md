@@ -32,6 +32,27 @@ branch against its base).
 4. **Get a mechanical signal.** Run `/ai-harness:run-gate` if the branch is
    checked out; otherwise note it wasn't run. A red gate is a blocking finding.
 
+4b. **Check ripple with the graph.** If `python3` is available and the branch is
+   checked out, build the dependency graph and query the changed files for
+   effects the diff doesn't show on its own:
+   ```
+   ROOT="$(git rev-parse --show-toplevel)"
+   GB="$ROOT/.harness/build-graph.py"; [ -f "$GB" ] || GB="${CLAUDE_PLUGIN_ROOT}/scripts/build-graph.py"
+   GQ="$ROOT/.harness/graph-query.py"; [ -f "$GQ" ] || GQ="${CLAUDE_PLUGIN_ROOT}/scripts/graph-query.py"
+   python3 "$GB" "$ROOT" "$ROOT/.harness/graph.db"
+   base=$(git merge-base HEAD @{upstream} 2>/dev/null || git merge-base HEAD origin/HEAD 2>/dev/null \
+          || git merge-base HEAD main 2>/dev/null || echo HEAD~1)
+   CHANGED=$(git -C "$ROOT" diff --name-only "$base"...HEAD 2>/dev/null)
+   python3 "$GQ" --db "$ROOT/.harness/graph.db" dependents $CHANGED   # callers that may need updating
+   python3 "$GQ" --db "$ROOT/.harness/graph.db" tests      $CHANGED   # tests that should have run
+   ```
+   (Prefer the PR-aware base from step 1 when you have it; the fallback above
+   covers no-upstream branches and silences git's error if `HEAD~1` is absent.)
+   Flag as findings: dependents of changed code that the PR did **not** touch
+   (possible missed call-site updates), and affected tests that aren't in the
+   diff or gate output (possible under-testing). It's advisory — note dynamic
+   imports may hide edges.
+
 5. **Synthesize the review:**
    - One-line **verdict**: `approve` / `request changes` / `comment` (a
      recommendation only — you never actually approve or merge).

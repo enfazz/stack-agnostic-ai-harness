@@ -28,6 +28,21 @@ Target: `$ARGUMENTS`. You do NOT write code in this skill — planning only.
    feature (needs scope boundaries), a refactor (needs behavior-preservation
    evidence), or unclear (needs questions — list them and stop)?
 
+3b. **Map the blast radius (graph).** If `python3` is available, build the
+   dependency graph and query it for the modules you expect to touch, so the
+   plan's *affected files* and *test plan* are derived, not guessed:
+   ```
+   ROOT="$(git rev-parse --show-toplevel)"
+   GB="$ROOT/.harness/build-graph.py"; [ -f "$GB" ] || GB="${CLAUDE_PLUGIN_ROOT}/scripts/build-graph.py"
+   GQ="$ROOT/.harness/graph-query.py"; [ -f "$GQ" ] || GQ="${CLAUDE_PLUGIN_ROOT}/scripts/graph-query.py"
+   python3 "$GB" "$ROOT" "$ROOT/.harness/graph.db"
+   python3 "$GQ" --db "$ROOT/.harness/graph.db" dependents <module-you-will-change>
+   python3 "$GQ" --db "$ROOT/.harness/graph.db" tests      <module-you-will-change>
+   ```
+   Fold `dependents` into "affected files" and `tests` into the "test plan".
+   (Or just run `/ai-harness:impact <module>`.) Treat it as a strong hint, not
+   proof — dynamic imports can hide edges.
+
 4. **Write the plan:**
    - **Success criteria** — observable outcomes, one per line; the gate + these
      define "done".

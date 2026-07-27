@@ -21,7 +21,8 @@ without the autonomy, or the skills without CI.
 │  sync-wiki (build-wiki.sh) · impact (build-graph.py)        │
 ├── Guardrails & autonomy ───────────────────────────────────┤
 │  hooks/  (always-on, deterministic):                        │
-│    protect-paths · guard-bash · scan-secrets · stop-gate    │
+│    protect-paths · guard-bash · scan-secrets · stop-gate ·  │
+│    refresh-graph (bg, no-op w/o graph)                      │
 │    + audit log · kill switch · human-only overrides         │
 │  settings/  (readonly | supervised | autonomous profiles)   │
 │  ci-templates/ (GitHub/GitLab/Bitbucket gate + @claude +    │

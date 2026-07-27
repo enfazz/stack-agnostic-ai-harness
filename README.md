@@ -76,7 +76,7 @@ scripts/install.sh /path/to/your/repo supervised
 | `base/CLAUDE.base.md` | Stack/domain-agnostic engineering conventions, imported into each repo's `CLAUDE.md`. |
 | `skills/` | `adapt-repo`, `run-gate`, `plan-change`, `write-tests`, `write-docs`, `setup-cicd`, `ship-change`, `review-pr`, `sync-wiki`, `impact`. |
 | `agents/` | Delegated specialists: `code-reviewer`, `gate-runner`, `test-author`, `docs-writer` (network-free). |
-| `hooks/` | Always-on guards: block secret writes, scan diffs for leaked keys, block destructive/history-rewriting git, kill switch, audit log. |
+| `hooks/` | Always-on guards: block secret writes, scan diffs for leaked keys, block destructive/history-rewriting git, kill switch, audit log; plus a background graph-refresh on edit (no-op unless the repo uses the graph). |
 | `settings/` | Three permission profiles: `readonly`, `supervised`, `autonomous`. |
 | `scripts/detect-stack.sh` | The "any tech stack" brain — detects stacks + emits gate commands + wiki URL/source; monorepo-aware. |
 | `scripts/build-wiki.sh` | Compiles a docs dir into flat wiki pages (Home, `_Sidebar`, rewritten links); shared by `sync-wiki` and the wiki CI. |
@@ -182,8 +182,11 @@ requires). It's **rebuilt incrementally** — a second run re-parses only the fi
 whose *content* changed (a per-file content hash; identical to a full build,
 never fooled by an unchanged mtime) — so it's never stale, and it adds a
 **file-level test-selection** layer to
-`run-gate` (tighter than the directory-level `--affected` monorepo selection). It's
-a strong hint that sharpens the agent's context and impact analysis — the
+`run-gate` (tighter than the directory-level `--affected` monorepo selection). A
+PostToolUse hook keeps it warm by refreshing in the background after edits (a
+no-op unless the repo already uses the graph), and `plan-change` / `review-pr`
+consult it for blast-radius and ripple — callers and tests a diff doesn't show.
+It's a strong hint that sharpens the agent's context and impact analysis — the
 verification gate still decides "done", so an approximate graph can't cause a bad
 merge.
 

@@ -190,6 +190,38 @@ python3 "$QUERY" --db "$DBH" deps pkg/a.py | grep -qx 'pkg/b.py' && bad "stale e
 echo "== incremental: atomic write leaves no .tmp behind =="
 [ -e "$DBH.tmp" ] && bad ".tmp left behind" || ok "no .tmp left after write"
 
+echo "== refresh hook (PostToolUse) =="
+HK="$HARNESS/hooks/refresh-graph.sh"
+# no-op when no graph exists in the repo
+RN="$TMP/rn"; mkdir -p "$RN/pkg"; touch "$RN/pkg/a.py"; ( cd "$RN" && git init -q )
+( cd "$RN" && bash "$HK" </dev/null )
+[ -f "$RN/.harness/graph.db" ] && bad "hook created a graph where none existed" || ok "refresh: no-op when no graph exists"
+
+# sync mode refreshes an existing graph after an edit
+RR="$TMP/rr"; mkdir -p "$RR/pkg"; touch "$RR/pkg/__init__.py"
+printf 'x=1\n' > "$RR/pkg/b.py"; printf 'x=1\n' > "$RR/pkg/c.py"; printf 'from .b import x\n' > "$RR/pkg/a.py"
+( cd "$RR" && git init -q )
+python3 "$BUILD" "$RR" "$RR/.harness/graph.db" >/dev/null 2>&1
+printf 'from .b import x\nfrom .c import x\n' > "$RR/pkg/a.py"
+( cd "$RR" && AI_HARNESS_REFRESH_SYNC=1 bash "$HK" </dev/null )
+python3 "$QUERY" --db "$RR/.harness/graph.db" deps pkg/a.py | grep -qx 'pkg/c.py' && ok "refresh: sync updates existing graph" || bad "refresh: sync updates existing graph"
+
+# background invocation is non-blocking (returns 0 without waiting for the build)
+( cd "$RR" && bash "$HK" </dev/null ); [ $? -eq 0 ] && ok "refresh: background invocation exits 0" || bad "refresh: non-blocking exit"
+
+# single-flight: a held lock makes the hook skip (graph left unchanged)
+RS="$TMP/rs"; mkdir -p "$RS/pkg"; touch "$RS/pkg/__init__.py"
+printf 'x=1\n' > "$RS/pkg/b.py"; printf 'from .b import x\n' > "$RS/pkg/a.py"
+( cd "$RS" && git init -q ); python3 "$BUILD" "$RS" "$RS/.harness/graph.db" >/dev/null 2>&1
+key="$(printf '%s' "$RS" | cksum | tr -cd '0-9')"; lk="${TMPDIR:-/tmp}/ai-harness-graph-${key}.lock"; mkdir -p "$lk"
+E1="$(dump_edges "$RS/.harness/graph.db")"
+printf 'x=1\n' > "$RS/pkg/c.py"; printf 'from .b import x\nfrom .c import x\n' > "$RS/pkg/a.py"   # would add a->c
+( cd "$RS" && AI_HARNESS_REFRESH_SYNC=1 bash "$HK" </dev/null )
+[ "$E1" = "$(dump_edges "$RS/.harness/graph.db")" ] && ok "refresh: single-flight lock skips when held" || bad "single-flight lock not honored"
+rmdir "$lk" 2>/dev/null
+# tidy any refresh locks these tests created in the shared temp dir
+for rp in "$RR" "$RS"; do k=$(printf '%s' "$rp" | cksum | tr -cd '0-9'); rmdir "${TMPDIR:-/tmp}/ai-harness-graph-${k}.lock" 2>/dev/null; done
+
 echo
 echo "graph: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]
