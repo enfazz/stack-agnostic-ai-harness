@@ -3,16 +3,22 @@
 set -u
 HARNESS="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FAIL=0
+HAVE_PY=1; command -v python3 >/dev/null 2>&1 || HAVE_PY=0
 
 echo "### JSON manifests valid"
-for f in "$HARNESS"/.claude-plugin/plugin.json "$HARNESS"/.claude-plugin/marketplace.json \
-         "$HARNESS"/hooks/hooks.json "$HARNESS"/settings/*.json; do
-  if python3 -c "import json;json.load(open('$f'))" 2>/dev/null; then echo "ok   ${f#"$HARNESS"/}"
-  else echo "FAIL ${f#"$HARNESS"/} is not valid JSON"; FAIL=1; fi
-done
+if [ "$HAVE_PY" = 1 ]; then
+  for f in "$HARNESS"/.claude-plugin/plugin.json "$HARNESS"/.claude-plugin/marketplace.json \
+           "$HARNESS"/hooks/hooks.json "$HARNESS"/settings/*.json; do
+    if python3 -c "import json;json.load(open('$f'))" 2>/dev/null; then echo "ok   ${f#"$HARNESS"/}"
+    else echo "FAIL ${f#"$HARNESS"/} is not valid JSON"; FAIL=1; fi
+  done
+else
+  echo "SKIP python3 unavailable (JSON validation, frontmatter, py_compile, graph tests all skipped)"
+fi
 
 echo
 echo "### Skill & agent frontmatter"
+if [ "$HAVE_PY" = 1 ]; then
 python3 - "$HARNESS" <<'PY' || FAIL=1
 import re, glob, sys
 root = sys.argv[1]; bad = 0
@@ -26,6 +32,7 @@ for f in sorted(glob.glob(f'{root}/skills/*/SKILL.md') + glob.glob(f'{root}/agen
         print(f'ok   {rel}')
 sys.exit(bad)
 PY
+fi
 
 echo
 echo "### Shell syntax (bash -n)"

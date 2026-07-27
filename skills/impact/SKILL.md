@@ -11,8 +11,10 @@ only — no external packages or services).
 
 ## Procedure
 
-1. **Build a fresh graph** (parsing is cheap; rebuilding each time avoids
-   staleness). Prefer the vendored copy so it works without the plugin:
+1. **Refresh the graph** (incremental: when `.harness/graph.db` already exists,
+   only files whose *content hash* changed are re-parsed, so this stays cheap on
+   large repos while remaining byte-for-byte identical to a full build). Prefer
+   the vendored copy so it works without the plugin:
    ```
    GB=.harness/build-graph.py; [ -f "$GB" ] || GB="${CLAUDE_PLUGIN_ROOT}/scripts/build-graph.py"
    GQ=.harness/graph-query.py; [ -f "$GQ" ] || GQ="${CLAUDE_PLUGIN_ROOT}/scripts/graph-query.py"

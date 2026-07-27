@@ -85,11 +85,20 @@ profile. Overrides can never bypass the tamper check or the kill switch.
 repo and work for teammates and CI even without the plugin installed (the wiki CI
 calls `.harness/build-wiki.sh`).
 
-**The dependency graph is rebuilt, not cached.** `build-graph.py` indexes files
-+ intra-repo import edges into SQLite (`ast` for Python, regex for JS/TS; Python
-stdlib only). The `impact` skill and `run-gate`'s file-level test selection
-rebuild it on use — parsing is cheap and a fresh graph can't go stale, which is
-the failure mode that makes a code graph worse than none. It's advisory (sharpens
+**The dependency graph is refreshed incrementally, never trusted stale.**
+`build-graph.py` indexes files + intra-repo import edges into SQLite (`ast` for
+Python, regex for JS/TS; Python stdlib only). The `impact` skill and `run-gate`'s
+file-level test selection refresh it on use: the expensive step (parsing) is
+cached per file keyed on a **content hash** (every file is still read to hash
+it — cheap; only the parse is skipped), so a re-run only re-parses files whose
+content changed, but **resolution is always redone in full** against the current
+file set. The DB is written atomically (temp + `os.replace`) so a crash never
+destroys the previous graph.
+That makes it identical to a from-scratch build — including the subtle case where
+*adding* a file newly resolves an *unchanged* file's import — so "incremental"
+never means "wrong". A `parser_version` in the DB invalidates the cache on
+upgrade, and `--full` forces a rebuild. Cheap + fresh is what makes a code graph
+help instead of rot. It's advisory (sharpens
 context
 and impact analysis); the gate, not the graph, decides "done", so an approximate
 JS/TS graph can't cause a bad merge. `.harness/graph.db` is generated and

@@ -178,9 +178,11 @@ scripts/graph-query.py orphans                   # dead-code candidates
 
 Python imports are parsed accurately via `ast` (incl. `src/` layouts); JS/TS via
 a comment-stripped regex plus `tsconfig` path aliases (approximate for dynamic
-requires). It's rebuilt on demand so it's never stale, and it adds a **file-level
-test-selection** layer to `run-gate` (tighter than the directory-level
-`--affected` monorepo selection). It's
+requires). It's **rebuilt incrementally** — a second run re-parses only the files
+whose *content* changed (a per-file content hash; identical to a full build,
+never fooled by an unchanged mtime) — so it's never stale, and it adds a
+**file-level test-selection** layer to
+`run-gate` (tighter than the directory-level `--affected` monorepo selection). It's
 a strong hint that sharpens the agent's context and impact analysis — the
 verification gate still decides "done", so an approximate graph can't cause a bad
 merge.

@@ -121,6 +121,75 @@ mkdir -p "$TMP/adir"
 python3 "$BUILD" "$TMP/srclayout" "$TMP/adir" >/dev/null 2>&1 \
   && bad "should refuse a directory as db path" || ok "refuses directory as db path"
 
+dump_edges(){ python3 - "$1" <<'PY'
+import sqlite3, sys
+c = sqlite3.connect(sys.argv[1]); n = dict(c.execute("SELECT id,path FROM nodes"))
+print("\n".join(sorted(f"{n[s]} {n[d]}" for s, d in c.execute("SELECT src,dst FROM edges"))))
+PY
+}
+
+echo "== incremental: first build is full, second reuses cache =="
+R="$TMP/inc1"; mkdir -p "$R/pkg"; touch "$R/pkg/__init__.py"
+printf 'X=1\n' > "$R/pkg/a.py"
+printf 'from .a import X\n' > "$R/pkg/b.py"
+DBI="$TMP/inc1.db"
+O1="$(python3 "$BUILD" "$R" "$DBI" 2>&1)"
+echo "$O1" | grep -q 'full build' && ok "first build is full" || { bad "first build is full"; echo "    $O1"; }
+printf 'Y=2\n' > "$R/pkg/c.py"                              # add c
+printf 'from .a import X\nfrom .c import Y\n' > "$R/pkg/b.py"  # change b
+O2="$(python3 "$BUILD" "$R" "$DBI" 2>&1)"
+echo "$O2" | grep -q 'incremental, reparsed 2/4' && ok "incremental reparses only changed+added (2/4)" || { bad "incremental reparse count"; echo "    $O2"; }
+python3 "$QUERY" --db "$DBI" deps pkg/b.py | grep -qx 'pkg/c.py' && ok "incremental: new edge b->c" || bad "incremental b->c"
+
+echo "== incremental: adding a file re-resolves an UNCHANGED importer =="
+R="$TMP/inc2"; mkdir -p "$R/pkg"; touch "$R/pkg/__init__.py"
+printf 'from .missing import Z\n' > "$R/pkg/e.py"           # imports a not-yet-existing module
+DBE="$TMP/inc2.db"
+python3 "$BUILD" "$R" "$DBE" >/dev/null 2>&1
+python3 "$QUERY" --db "$DBE" deps pkg/e.py 2>/dev/null | grep -q missing && bad "unresolved import should have no edge" || ok "unresolved import -> no edge"
+printf 'Z=3\n' > "$R/pkg/missing.py"                        # ADD target; do NOT touch e.py
+O3="$(python3 "$BUILD" "$R" "$DBE" 2>&1)"
+echo "$O3" | grep -q 'reparsed 1/' && ok "only the added file is reparsed (e reused)" || { bad "reparse count (case a)"; echo "    $O3"; }
+python3 "$QUERY" --db "$DBE" deps pkg/e.py | grep -qx 'pkg/missing.py' \
+  && ok "case a: unchanged file re-resolves to the added file" || bad "case a re-resolve"
+
+echo "== incremental: deleting a file removes its node + edges =="
+rm "$R/pkg/missing.py"
+python3 "$BUILD" "$R" "$DBE" >/dev/null 2>&1
+python3 "$QUERY" --db "$DBE" dependents pkg/missing.py 2>&1 | grep -q 'not in graph' && ok "deleted file removed from graph" || bad "deleted file removed"
+python3 "$QUERY" --db "$DBE" deps pkg/e.py 2>/dev/null | grep -q missing && bad "edge to deleted file should be gone" || ok "edge to deleted file removed"
+
+echo "== incremental result == full rebuild (equivalence) =="
+python3 "$BUILD" --full "$R" "$TMP/inc2-full.db" >/dev/null 2>&1
+[ "$(dump_edges "$DBE")" = "$(dump_edges "$TMP/inc2-full.db")" ] \
+  && ok "incremental edges identical to a full rebuild" || { bad "incremental != full"; echo "  INC:"; dump_edges "$DBE"; echo "  FULL:"; dump_edges "$TMP/inc2-full.db"; }
+
+echo "== incremental: parser_version bump forces a full rebuild =="
+python3 - "$DBI" <<'PY'
+import sqlite3, sys
+c = sqlite3.connect(sys.argv[1]); c.execute("UPDATE meta SET value='0' WHERE key='parser_version'"); c.commit(); c.close()
+PY
+O4="$(python3 "$BUILD" "$R" "$DBI" 2>&1)"   # DBI now has a stale parser_version
+echo "$O4" | grep -q 'full build' && ok "parser_version mismatch -> full rebuild" || { bad "parser_version invalidation"; echo "    $O4"; }
+
+echo "== incremental: same-size + restored-mtime content edit is still caught (content hash) =="
+R="$TMP/inch"; mkdir -p "$R/pkg"; touch "$R/pkg/__init__.py"
+printf 'x=1\n' > "$R/pkg/b.py"; printf 'x=1\n' > "$R/pkg/c.py"
+printf 'from .b import x\n' > "$R/pkg/a.py"      # 17 bytes
+DBH="$TMP/inch.db"; python3 "$BUILD" "$R" "$DBH" >/dev/null 2>&1
+python3 - "$R/pkg/a.py" <<'PY'
+import os, sys
+p = sys.argv[1]; ns = os.stat(p).st_mtime_ns
+open(p, "w").write("from .c import x\n")        # same 17 bytes, different content
+os.utime(p, ns=(ns, ns))                         # restore mtime -> defeats any (mtime,size) key
+PY
+python3 "$BUILD" "$R" "$DBH" >/dev/null 2>&1     # incremental
+python3 "$QUERY" --db "$DBH" deps pkg/a.py | grep -qx 'pkg/c.py' && ok "hash catches same-size+same-mtime edit (a->c)" || bad "hash catches same-size+same-mtime edit"
+python3 "$QUERY" --db "$DBH" deps pkg/a.py | grep -qx 'pkg/b.py' && bad "stale edge a->b should be gone" || ok "stale edge a->b removed"
+
+echo "== incremental: atomic write leaves no .tmp behind =="
+[ -e "$DBH.tmp" ] && bad ".tmp left behind" || ok "no .tmp left after write"
+
 echo
 echo "graph: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]
