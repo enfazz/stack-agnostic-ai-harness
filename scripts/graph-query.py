@@ -11,6 +11,10 @@ Subcommands (db defaults to .harness/graph.db):
   orphans                files with NO inbound import edges, excluding tests.
                          NOTE: "no importers" != "dead code" — entrypoints and
                          package __init__.py legitimately appear here.
+  defines    <file>      top-level symbols (functions/classes) defined in a file
+  whereis    <name>      file:line where a symbol name is defined
+  importers  <name>      files that explicitly import a symbol by name
+                         (named imports only; not attribute usage like m.foo())
   stats                  counts
 Usage:  graph-query.py [--db PATH] <subcommand> [args...]
 Pure Python: no SQLite JSON1 extension required; O(V+E) traversals.
@@ -132,6 +136,30 @@ elif cmd == "orphans":
     for i in sorted(ID2PATH):
         if not ID2TEST.get(i) and i not in have_in:
             print(ID2PATH[i])
+
+elif cmd == "defines":
+    if not args:
+        print("usage: defines <file>", file=sys.stderr); sys.exit(2)
+    p = norm(args[0])
+    rows = con.execute("SELECT name, kind, line FROM symbols WHERE path=? ORDER BY line", (p,)).fetchall()
+    if not rows:
+        print(f"(no defs recorded for {p})", file=sys.stderr)
+    for name, kind, line in rows:
+        print(f"{p}:{line} {kind} {name}")
+
+elif cmd == "whereis":
+    if not args:
+        print("usage: whereis <name>", file=sys.stderr); sys.exit(2)
+    rows = con.execute("SELECT path, kind, line FROM symbols WHERE name=? ORDER BY path", (args[0],)).fetchall()
+    for path, kind, line in rows:
+        print(f"{path}:{line} {kind} {args[0]}")
+
+elif cmd == "importers":
+    if not args:
+        print("usage: importers <name>", file=sys.stderr); sys.exit(2)
+    srcs = {s for (s,) in con.execute("SELECT DISTINCT src FROM symbol_edges WHERE symbol=?", (args[0],))}
+    for p in sorted(ID2PATH[i] for i in srcs if i in ID2PATH):
+        print(p)
 
 elif cmd == "stats":
     for k, v in con.execute("SELECT key,value FROM meta"): print(f"{k}={v}")

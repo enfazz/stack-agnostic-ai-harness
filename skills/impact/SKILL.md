@@ -34,6 +34,11 @@ only — no external packages or services).
    - `tests <file...>` — the affected files that are tests (what to re-run).
    - `cycles` — files in an import cycle.
    - `orphans` — non-test files nothing imports (dead-code candidates).
+   - `defines <file>` — top-level functions/classes defined in a file.
+   - `whereis <name>` — file:line where a symbol is defined.
+   - `importers <name>` — files that import a symbol by name (explicit named
+     imports only — not `import m; m.foo()` attribute usage, nor JS default
+     imports; use it as a strong hint for "who uses function/class X").
    If `$ARGUMENTS` names a subcommand, run it. If empty, treat the **current
    change** as the target: `tests`/`affected` on the changed files
    (`git diff --name-only` + staged + untracked).

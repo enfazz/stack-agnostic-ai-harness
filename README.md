@@ -174,7 +174,15 @@ scripts/graph-query.py dependents src/auth.py   # everything that (transitively)
 scripts/graph-query.py tests       src/auth.py   # which tests to re-run
 scripts/graph-query.py cycles                    # import cycles
 scripts/graph-query.py orphans                   # dead-code candidates
+scripts/graph-query.py whereis    login          # file:line where a symbol is defined
+scripts/graph-query.py importers  login          # who imports the symbol `login` by name
 ```
+
+It indexes at two grains: **file** edges (who imports from whom) and **symbol**
+edges (who imports a specific function/class by name), plus a definition index
+(`defines`/`whereis`). Symbol edges cover *explicit named imports* — not
+`import m; m.foo()` attribute usage or JS default imports — so treat "who imports
+symbol X" as a strong hint, not a complete call graph.
 
 Python imports are parsed accurately via `ast` (incl. `src/` layouts); JS/TS via
 a comment-stripped regex plus `tsconfig` path aliases (approximate for dynamic

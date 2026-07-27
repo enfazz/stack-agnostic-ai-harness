@@ -222,6 +222,90 @@ rmdir "$lk" 2>/dev/null
 # tidy any refresh locks these tests created in the shared temp dir
 for rp in "$RR" "$RS"; do k=$(printf '%s' "$rp" | cksum | tr -cd '0-9'); rmdir "${TMPDIR:-/tmp}/ai-harness-graph-${k}.lock" 2>/dev/null; done
 
+echo "== symbol-level: defines / whereis / importers =="
+R="$TMP/sym"; mkdir -p "$R/pkg"; touch "$R/pkg/__init__.py"
+cat > "$R/pkg/util.py" <<'EOF'
+def helper():
+    return 1
+
+
+class Widget:
+    pass
+EOF
+printf 'from .util import helper\n'  > "$R/pkg/a.py"
+printf 'from .util import Widget\n'  > "$R/pkg/b.py"
+printf 'from .util import helper\n'  > "$R/pkg/test_x.py"
+DBSY="$TMP/sym.db"; python3 "$BUILD" "$R" "$DBSY" >/dev/null 2>&1
+python3 "$QUERY" --db "$DBSY" defines pkg/util.py | grep -q 'function helper' && ok "defines: util defines helper()" || bad "defines helper"
+python3 "$QUERY" --db "$DBSY" defines pkg/util.py | grep -q 'class Widget'    && ok "defines: util defines Widget"   || bad "defines Widget"
+python3 "$QUERY" --db "$DBSY" whereis helper | grep -qx 'pkg/util.py:1 function helper' && ok "whereis: helper -> util:1" || { bad "whereis helper"; python3 "$QUERY" --db "$DBSY" whereis helper; }
+IMP="$(python3 "$QUERY" --db "$DBSY" importers helper)"
+printf '%s\n' "$IMP" | grep -qx 'pkg/a.py'      && ok "importers helper includes a"      || bad "importers a"
+printf '%s\n' "$IMP" | grep -qx 'pkg/test_x.py' && ok "importers helper includes test_x" || bad "importers test_x"
+printf '%s\n' "$IMP" | grep -qx 'pkg/b.py'      && bad "b imports Widget, not helper"    || ok "importers helper excludes b"
+python3 "$QUERY" --db "$DBSY" deps pkg/a.py | grep -qx 'pkg/util.py' && ok "symbol import still yields file edge a->util" || bad "file edge a->util"
+
+echo "== symbol-level: submodule import is a file edge, not a symbol edge =="
+R2="$TMP/sub"; mkdir -p "$R2/pkg/util"; touch "$R2/pkg/__init__.py" "$R2/pkg/util/__init__.py"
+printf 'def helper():\n    return 1\n' > "$R2/pkg/util/helper.py"
+printf 'from .util import helper\n'   > "$R2/pkg/a.py"    # helper is the SUBMODULE util/helper.py
+DBSB="$TMP/sub.db"; python3 "$BUILD" "$R2" "$DBSB" >/dev/null 2>&1
+python3 "$QUERY" --db "$DBSB" deps pkg/a.py | grep -qx 'pkg/util/helper.py' && ok "submodule import -> file edge to util/helper.py" || bad "submodule file edge"
+[ -z "$(python3 "$QUERY" --db "$DBSB" importers helper)" ] && ok "submodule import creates NO symbol edge" || bad "submodule wrongly created a symbol edge"
+
+echo "== symbol-level: defs survive the incremental cache round-trip =="
+printf 'x=1\n' > "$R/pkg/newfile.py"                       # add a file -> incremental; util.py reused
+python3 "$BUILD" "$R" "$DBSY" >/dev/null 2>&1
+python3 "$QUERY" --db "$DBSY" defines pkg/util.py | grep -q 'function helper' && ok "defs persist after incremental (util.py reused)" || bad "defs lost on incremental"
+
+echo "== symbol-level regression: submodule misfire (unrelated deep file must not win) =="
+RM="$TMP/misfire"; mkdir -p "$RM/app" "$RM/deep/nested/pkg/svc"
+printf 'def run():\n    return 1\n' > "$RM/svc.py"                         # real module + symbol
+printf 'def run():\n    return 2\n' > "$RM/deep/nested/pkg/svc/run.py"    # unrelated, same svc/run suffix
+printf 'from svc import run\n'      > "$RM/app/uses_svc.py"
+DBM="$TMP/misfire.db"; python3 "$BUILD" "$RM" "$DBM" >/dev/null 2>&1
+python3 "$QUERY" --db "$DBM" deps app/uses_svc.py | grep -qx 'svc.py' && ok "misfire: edge points to real svc.py" || { bad "misfire svc.py edge"; python3 "$QUERY" --db "$DBM" deps app/uses_svc.py; }
+python3 "$QUERY" --db "$DBM" deps app/uses_svc.py | grep -q 'deep/nested' && bad "misfire: bogus edge to unrelated deep file" || ok "misfire: no bogus deep-file edge"
+python3 "$QUERY" --db "$DBM" importers run | grep -qx 'app/uses_svc.py' && ok "misfire: symbol edge for run recorded" || bad "misfire symbol edge"
+
+echo "== symbol-level regression: JS template literal yields no phantom defs/edges =="
+RT="$TMP/jsphantom"; mkdir -p "$RT"
+cat > "$RT/phantom.ts" <<'EOF'
+const doc = `
+function phantomFunc() {}
+class PhantomClass {}
+import realLooking from './y';
+`;
+export function realFunc() {}
+EOF
+printf 'export const y = 1;\n' > "$RT/y.ts"
+DBTP="$TMP/jsphantom.db"; python3 "$BUILD" "$RT" "$DBTP" >/dev/null 2>&1
+DEF="$(python3 "$QUERY" --db "$DBTP" defines phantom.ts)"
+printf '%s\n' "$DEF" | grep -q 'phantomFunc' && bad "phantom def leaked from template literal" || ok "no phantom def from template literal"
+printf '%s\n' "$DEF" | grep -q 'realFunc'    && ok "real def realFunc captured" || bad "real def missing"
+python3 "$QUERY" --db "$DBTP" deps phantom.ts | grep -q 'y.ts' && bad "phantom import edge from template string" || ok "no phantom import edge from template"
+
+echo "== symbol-level regression: guarded top-level defs are captured =="
+RG="$TMP/guarded"; mkdir -p "$RG"
+cat > "$RG/g.py" <<'EOF'
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    def guarded():
+        return 1
+try:
+    class Optional:
+        pass
+except Exception:
+    pass
+def plain():
+    return 2
+EOF
+DBG="$TMP/guarded.db"; python3 "$BUILD" "$RG" "$DBG" >/dev/null 2>&1
+G="$(python3 "$QUERY" --db "$DBG" defines g.py)"
+printf '%s\n' "$G" | grep -q 'guarded'  && ok "guarded (if-block) def captured"  || bad "guarded def missed"
+printf '%s\n' "$G" | grep -q 'Optional' && ok "try-block class captured"         || bad "try-block class missed"
+printf '%s\n' "$G" | grep -q 'plain'    && ok "plain def captured"               || bad "plain def missed"
+
 echo
 echo "graph: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]
