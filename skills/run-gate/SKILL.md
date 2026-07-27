@@ -23,6 +23,24 @@ You are running the mechanical "is it done?" gate for the current repository.
    and run each affected sub-project's gate from its own directory. Fall back to
    all roots (`--roots`) when the change spans everything (e.g. repo-wide config).
 
+   For **file-level** test selection (tighter than the directory-level
+   `--affected`), if `python3` is available build the dependency graph and ask
+   which tests a change actually hits. Resolve the scripts vendored-first (same as
+   the `impact` skill) and anchor to the repo root so paths line up with
+   `git diff` output:
+   ```
+   ROOT="$(git rev-parse --show-toplevel)"
+   GB=.harness/build-graph.py; [ -f "$GB" ] || GB="${CLAUDE_PLUGIN_ROOT}/scripts/build-graph.py"
+   GQ=.harness/graph-query.py; [ -f "$GQ" ] || GQ="${CLAUDE_PLUGIN_ROOT}/scripts/graph-query.py"
+   python3 "$GB" "$ROOT" "$ROOT/.harness/graph.db"
+   python3 "$GQ" --db "$ROOT/.harness/graph.db" tests $(git -C "$ROOT" diff --name-only HEAD)
+   ```
+   When it returns a non-empty set, scope the test step to just those test files
+   where the runner supports it (`pytest <files>`, `vitest run <files>`,
+   `jest <files>`, `go test <pkgs>`). If it returns nothing or the stack has no
+   import graph, run the full test command — never skip tests because the graph
+   was empty.
+
 2. **Run the steps that exist**, in this order, stopping at the first failure:
    - `--cheap` mode (argument `$ARGUMENTS` contains `--cheap`): run **lint** and
      **typecheck** only. This is the fast, no-network gate suitable for a quick

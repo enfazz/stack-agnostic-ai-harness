@@ -35,6 +35,17 @@ for f in "$HARNESS"/scripts/*.sh "$HARNESS"/hooks/*.sh "$HARNESS"/tests/*.sh; do
 done
 
 echo
+echo "### Python syntax (py_compile)"
+if command -v python3 >/dev/null 2>&1; then
+  for f in "$HARNESS"/scripts/*.py; do
+    if python3 -m py_compile "$f" 2>/dev/null; then echo "ok   ${f#"$HARNESS"/}"
+    else echo "FAIL ${f#"$HARNESS"/} has syntax errors"; FAIL=1; fi
+  done
+else
+  echo "SKIP python3 not available (graph scripts unchecked)"
+fi
+
+echo
 echo "### Detector fixture tests"
 bash "$HARNESS/tests/test-detect.sh" || FAIL=1
 
@@ -45,6 +56,10 @@ bash "$HARNESS/tests/test-hooks.sh" || FAIL=1
 echo
 echo "### Wiki tests (build-wiki + detection + guard exception)"
 bash "$HARNESS/tests/test-wiki.sh" || FAIL=1
+
+echo
+echo "### Graph tests (dependency graph + impact queries)"
+bash "$HARNESS/tests/test-graph.sh" || FAIL=1
 
 echo
 if [ "$FAIL" -eq 0 ]; then echo "ALL SUITES GREEN"; else echo "SUITES FAILED"; fi

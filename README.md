@@ -57,6 +57,7 @@ Then, inside any project you want to work on:
 /ai-harness:ship-change "..."   # implement → test → doc → gate → branch → PR
 /ai-harness:review-pr 123       # structured review of a PR/MR (never auto-merges)
 /ai-harness:sync-wiki           # publish docs/ to the repo's GitHub/GitLab wiki
+/ai-harness:impact src/auth.py  # what depends on this? what tests cover it?
 ```
 
 Or just tell the agent, in plain language: **"adapt this harness to this
@@ -73,12 +74,13 @@ scripts/install.sh /path/to/your/repo supervised
 | Path | What it is |
 | --- | --- |
 | `base/CLAUDE.base.md` | Stack/domain-agnostic engineering conventions, imported into each repo's `CLAUDE.md`. |
-| `skills/` | `adapt-repo`, `run-gate`, `plan-change`, `write-tests`, `write-docs`, `setup-cicd`, `ship-change`, `review-pr`, `sync-wiki`. |
+| `skills/` | `adapt-repo`, `run-gate`, `plan-change`, `write-tests`, `write-docs`, `setup-cicd`, `ship-change`, `review-pr`, `sync-wiki`, `impact`. |
 | `agents/` | Delegated specialists: `code-reviewer`, `gate-runner`, `test-author`, `docs-writer` (network-free). |
 | `hooks/` | Always-on guards: block secret writes, scan diffs for leaked keys, block destructive/history-rewriting git, kill switch, audit log. |
 | `settings/` | Three permission profiles: `readonly`, `supervised`, `autonomous`. |
 | `scripts/detect-stack.sh` | The "any tech stack" brain — detects stacks + emits gate commands + wiki URL/source; monorepo-aware. |
 | `scripts/build-wiki.sh` | Compiles a docs dir into flat wiki pages (Home, `_Sidebar`, rewritten links); shared by `sync-wiki` and the wiki CI. |
+| `scripts/build-graph.py` + `graph-query.py` | Build/query a SQLite file+import dependency graph (Python stdlib only); powers `impact` and file-level `run-gate --affected`. |
 | `scripts/export-code-agnostic.sh` | Optional: mirror the conventions/skills into a [code-agnostic](https://github.com/dhvcc/code-agnostic) hub for Codex / Cursor / Copilot. |
 | `ci-templates/` | Gate pipelines for GitHub / GitLab / Bitbucket + an optional `@claude` responder + a wiki publisher. |
 | `fixtures/` + `tests/` | Golden fixture repos and the harness's own test suite (`tests/run-all.sh`), run in CI. |
@@ -159,6 +161,29 @@ wiki is generated, never hand-edited. For unattended publishing, `setup-cicd` ca
 add `ci-templates/github/wiki.yml` (publishes on push to the default branch using
 the built-in token). Pushing to a `.wiki.git` remote's default branch is exempt
 from the PR-by-default guard, since wikis have no pull requests.
+
+## Dependency graph (precise impact analysis)
+
+The harness can build a **file + import dependency graph** into SQLite
+(`.harness/graph.db`, Python stdlib only — no server, no external packages) so an
+agent answers structural questions exactly instead of guessing from grep:
+
+```bash
+/ai-harness:impact src/auth.py     # blast radius + covering tests, before you change it
+scripts/graph-query.py dependents src/auth.py   # everything that (transitively) imports it
+scripts/graph-query.py tests       src/auth.py   # which tests to re-run
+scripts/graph-query.py cycles                    # import cycles
+scripts/graph-query.py orphans                   # dead-code candidates
+```
+
+Python imports are parsed accurately via `ast` (incl. `src/` layouts); JS/TS via
+a comment-stripped regex plus `tsconfig` path aliases (approximate for dynamic
+requires). It's rebuilt on demand so it's never stale, and it adds a **file-level
+test-selection** layer to `run-gate` (tighter than the directory-level
+`--affected` monorepo selection). It's
+a strong hint that sharpens the agent's context and impact analysis — the
+verification gate still decides "done", so an approximate graph can't cause a bad
+merge.
 
 ## Using other AI tools (Codex / Cursor / Copilot)
 

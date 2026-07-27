@@ -37,12 +37,17 @@ Profile requested: `$ARGUMENTS` (default `supervised` if empty).
    cp "${CLAUDE_PLUGIN_ROOT}/base/CLAUDE.base.md" .harness/CLAUDE.base.md
    cp "${CLAUDE_PLUGIN_ROOT}/scripts/detect-stack.sh" .harness/detect-stack.sh
    cp "${CLAUDE_PLUGIN_ROOT}/scripts/build-wiki.sh"   .harness/build-wiki.sh
-   chmod +x .harness/detect-stack.sh .harness/build-wiki.sh
+   cp "${CLAUDE_PLUGIN_ROOT}/scripts/build-graph.py"  .harness/build-graph.py
+   cp "${CLAUDE_PLUGIN_ROOT}/scripts/graph-query.py"  .harness/graph-query.py
+   chmod +x .harness/detect-stack.sh .harness/build-wiki.sh .harness/*.py
+   printf 'graph.db\n' >> .harness/.gitignore   # the graph is a generated snapshot, not source
    ```
-   **Commit `.harness/`** (do not gitignore it) — it's the self-contained harness
-   config, and the wiki CI reads `.harness/build-wiki.sh` from the checkout.
-   (`build-wiki.sh` is what the optional wiki CI and `/ai-harness:sync-wiki` use.)
-   Add `.harness/` to the repo's `.gitignore` unless the team wants it tracked.
+   **Commit `.harness/` (the scripts)** — the `.harness/.gitignore` written above
+   already excludes only the generated `graph.db`. Do NOT gitignore the whole
+   `.harness/` dir: the wiki CI reads `.harness/build-wiki.sh` from the checkout,
+   and teammates/no-plugin checkouts need the vendored scripts. (`build-wiki.sh`
+   powers the wiki; `build-graph.py` + `graph-query.py` power `/ai-harness:impact`
+   and file-level test selection in `run-gate`.)
 
 4. **Write/merge `CLAUDE.md`** at repo root. If it exists, append a clearly
    marked harness section; otherwise create it. It must contain:

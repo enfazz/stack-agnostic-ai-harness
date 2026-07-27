@@ -18,7 +18,7 @@ without the autonomy, or the skills without CI.
 │  plan-change · write-tests ·  test-author · docs-writer     │
 │  write-docs · setup-cicd ·                                  │
 │  ship-change · review-pr ·                                  │
-│  sync-wiki  (build-wiki.sh)                                 │
+│  sync-wiki (build-wiki.sh) · impact (build-graph.py)        │
 ├── Guardrails & autonomy ───────────────────────────────────┤
 │  hooks/  (always-on, deterministic):                        │
 │    protect-paths · guard-bash · scan-secrets · stop-gate    │
@@ -84,6 +84,16 @@ profile. Overrides can never bypass the tamper check or the kill switch.
 `.harness/` and imports the conventions from `CLAUDE.md`, so they travel with the
 repo and work for teammates and CI even without the plugin installed (the wiki CI
 calls `.harness/build-wiki.sh`).
+
+**The dependency graph is rebuilt, not cached.** `build-graph.py` indexes files
++ intra-repo import edges into SQLite (`ast` for Python, regex for JS/TS; Python
+stdlib only). The `impact` skill and `run-gate`'s file-level test selection
+rebuild it on use — parsing is cheap and a fresh graph can't go stale, which is
+the failure mode that makes a code graph worse than none. It's advisory (sharpens
+context
+and impact analysis); the gate, not the graph, decides "done", so an approximate
+JS/TS graph can't cause a bad merge. `.harness/graph.db` is generated and
+gitignored; the two scripts are vendored + committed.
 
 **The wiki is a generated mirror, not a source.** A wiki lives in a separate
 `<repo>.wiki.git` repo with no PR flow. `build-wiki.sh` compiles the in-repo docs
