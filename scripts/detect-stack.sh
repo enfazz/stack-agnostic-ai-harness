@@ -329,6 +329,22 @@ fi
 # Surface the Python package manager when no JS one set PM.
 [ -z "$PM" ] && PM="${PY:-}"
 
+# ------------------------------------------------------------- wiki (GitHub/GitLab)
+WIKI_URL=""; WIKI_SOURCE=""
+if [ "$HOST" = github ] || [ "$HOST" = gitlab ]; then
+  if [ -n "$REMOTE" ]; then
+    case "$REMOTE" in
+      *.git) WIKI_URL="${REMOTE%.git}.wiki.git" ;;
+      *)     WIKI_URL="${REMOTE}.wiki.git" ;;
+    esac
+  fi
+  for d in docs doc documentation; do   # not 'wiki' — a stray wiki clone must not become the source
+    if [ -d "$d" ] && find "$d" -maxdepth 3 -name '*.md' 2>/dev/null | grep -q .; then
+      WIKI_SOURCE="$d"; break
+    fi
+  done
+fi
+
 # ------------------------------------------------------------- confidence
 # high  = lint-or-typecheck AND test detected (a real gate exists)
 # low   = something detected, but the gate is thin — treat green with caution
@@ -349,6 +365,8 @@ if [ "$MODE" = "json" ]; then
   printf '  "notebooks": "%s",\n' "$NOTEBOOKS"
   printf '  "iac": "%s",\n' "$IAC"
   printf '  "dockerfile": "%s",\n' "$DOCKERFILE"
+  printf '  "wiki_url": "%s",\n' "$(esc "$WIKI_URL")"
+  printf '  "wiki_source": "%s",\n' "$(esc "$WIKI_SOURCE")"
   printf '  "install": "%s",\n' "$(esc "$INSTALL")"
   printf '  "lint": "%s",\n' "$(esc "$LINT")"
   printf '  "typecheck": "%s",\n' "$(esc "$TYPECHECK")"
@@ -385,6 +403,8 @@ printf 'harness.docs=%s\n'      "$DOCS"
 printf 'harness.host=%s\n'      "$HOST"
 printf 'harness.default_branch=%s\n' "$BRANCH"
 printf 'harness.confidence=%s\n' "$CONFIDENCE"
+printf 'harness.wiki_url=%s\n'    "$WIKI_URL"
+printf 'harness.wiki_source=%s\n' "$WIKI_SOURCE"
 
 # Monorepo hint: other primary roots exist below this one.
 OTHERS="$(discover_roots | grep -vx "$ROOT" || true)"

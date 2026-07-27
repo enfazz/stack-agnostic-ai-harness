@@ -9,7 +9,7 @@ without the autonomy, or the skills without CI.
 │  imported into each repo's CLAUDE.md by adapt-repo.         │
 ├── Detection ───────────────────────────────────────────────┤
 │  scripts/detect-stack.sh — maps marker files → gate         │
-│  commands + host + default branch + confidence.             │
+│  commands + host + default branch + confidence + wiki.      │
 │  Monorepo-aware: --roots lists sub-projects, --affected     │
 │  maps changed files → only the gates that matter.           │
 ├── Execution ───────────────────────────────────────────────┤
@@ -17,13 +17,15 @@ without the autonomy, or the skills without CI.
 │  adapt-repo · run-gate ·    code-reviewer · gate-runner ·   │
 │  plan-change · write-tests ·  test-author · docs-writer     │
 │  write-docs · setup-cicd ·                                  │
-│  ship-change · review-pr                                    │
+│  ship-change · review-pr ·                                  │
+│  sync-wiki  (build-wiki.sh)                                 │
 ├── Guardrails & autonomy ───────────────────────────────────┤
 │  hooks/  (always-on, deterministic):                        │
 │    protect-paths · guard-bash · scan-secrets · stop-gate    │
 │    + audit log · kill switch · human-only overrides         │
 │  settings/  (readonly | supervised | autonomous profiles)   │
-│  ci-templates/  (GitHub/GitLab/Bitbucket gate + @claude)    │
+│  ci-templates/ (GitHub/GitLab/Bitbucket gate + @claude +    │
+│                 wiki publisher)                             │
 ├── Self-verification ───────────────────────────────────────┤
 │  fixtures/ (golden repos) + tests/run-all.sh, run in the    │
 │  harness's own CI — the harness eats its own gate.          │
@@ -78,9 +80,17 @@ denied in the hooks (before any override lookup) *and* in every settings
 profile. Overrides can never bypass the tamper check or the kill switch.
 
 **Config is vendored into the target repo.** `adapt-repo` copies
-`CLAUDE.base.md` into the repo's `.harness/` and imports it from `CLAUDE.md`, so
-the conventions travel with the repo and work for teammates and CI even without
-the plugin installed.
+`CLAUDE.base.md`, `detect-stack.sh`, and `build-wiki.sh` into the repo's
+`.harness/` and imports the conventions from `CLAUDE.md`, so they travel with the
+repo and work for teammates and CI even without the plugin installed (the wiki CI
+calls `.harness/build-wiki.sh`).
+
+**The wiki is a generated mirror, not a source.** A wiki lives in a separate
+`<repo>.wiki.git` repo with no PR flow. `build-wiki.sh` compiles the in-repo docs
+into flat pages (one implementation shared by the `sync-wiki` skill and the wiki
+CI); the source docs stay authoritative. Because a wiki has no pull requests, a
+push to a `.wiki.git` remote's default branch is the one case exempted from the
+PR-by-default guard — detected by the remote URL shape, not by branch name.
 
 ## Extending
 

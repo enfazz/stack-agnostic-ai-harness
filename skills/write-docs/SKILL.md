@@ -32,3 +32,8 @@ current uncommitted change).
 
 5. **Report** which pages changed and confirm any doc build/link check passed. If
    the change has no doc impact, state the concrete reason.
+
+6. **Wiki.** If the detector reports a `harness.wiki_url` (a GitHub/GitLab repo
+   whose docs are published to its wiki), offer to run `/ai-harness:sync-wiki`
+   after the doc edits so the wiki reflects the source. Never edit the wiki by
+   hand — the in-repo docs are the source of truth.

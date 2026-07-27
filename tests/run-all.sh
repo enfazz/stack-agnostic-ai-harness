@@ -43,5 +43,9 @@ echo "### Hook payload tests"
 bash "$HARNESS/tests/test-hooks.sh" || FAIL=1
 
 echo
+echo "### Wiki tests (build-wiki + detection + guard exception)"
+bash "$HARNESS/tests/test-wiki.sh" || FAIL=1
+
+echo
 if [ "$FAIL" -eq 0 ]; then echo "ALL SUITES GREEN"; else echo "SUITES FAILED"; fi
 exit "$FAIL"

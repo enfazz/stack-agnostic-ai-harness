@@ -56,6 +56,7 @@ Then, inside any project you want to work on:
 /ai-harness:plan-change "#42"   # triage an issue into a reviewed plan first
 /ai-harness:ship-change "..."   # implement → test → doc → gate → branch → PR
 /ai-harness:review-pr 123       # structured review of a PR/MR (never auto-merges)
+/ai-harness:sync-wiki           # publish docs/ to the repo's GitHub/GitLab wiki
 ```
 
 Or just tell the agent, in plain language: **"adapt this harness to this
@@ -72,13 +73,14 @@ scripts/install.sh /path/to/your/repo supervised
 | Path | What it is |
 | --- | --- |
 | `base/CLAUDE.base.md` | Stack/domain-agnostic engineering conventions, imported into each repo's `CLAUDE.md`. |
-| `skills/` | `adapt-repo`, `run-gate`, `plan-change`, `write-tests`, `write-docs`, `setup-cicd`, `ship-change`, `review-pr`. |
+| `skills/` | `adapt-repo`, `run-gate`, `plan-change`, `write-tests`, `write-docs`, `setup-cicd`, `ship-change`, `review-pr`, `sync-wiki`. |
 | `agents/` | Delegated specialists: `code-reviewer`, `gate-runner`, `test-author`, `docs-writer` (network-free). |
 | `hooks/` | Always-on guards: block secret writes, scan diffs for leaked keys, block destructive/history-rewriting git, kill switch, audit log. |
 | `settings/` | Three permission profiles: `readonly`, `supervised`, `autonomous`. |
-| `scripts/detect-stack.sh` | The "any tech stack" brain — detects stacks and emits the gate commands; monorepo-aware. |
+| `scripts/detect-stack.sh` | The "any tech stack" brain — detects stacks + emits gate commands + wiki URL/source; monorepo-aware. |
+| `scripts/build-wiki.sh` | Compiles a docs dir into flat wiki pages (Home, `_Sidebar`, rewritten links); shared by `sync-wiki` and the wiki CI. |
 | `scripts/export-code-agnostic.sh` | Optional: mirror the conventions/skills into a [code-agnostic](https://github.com/dhvcc/code-agnostic) hub for Codex / Cursor / Copilot. |
-| `ci-templates/` | Gate pipelines for GitHub / GitLab / Bitbucket + an optional `@claude` responder. |
+| `ci-templates/` | Gate pipelines for GitHub / GitLab / Bitbucket + an optional `@claude` responder + a wiki publisher. |
 | `fixtures/` + `tests/` | Golden fixture repos and the harness's own test suite (`tests/run-all.sh`), run in CI. |
 
 ## How it stays stack-agnostic
@@ -144,6 +146,19 @@ adversary. For untrusted code, run in a real sandbox too.
 Choose how much autonomy per repo via the permission profile
 (`readonly` → `supervised` → `autonomous`). See
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design and how to extend it.
+
+## GitHub / GitLab wiki
+
+The harness can keep a repo's **wiki** in sync with its in-repo docs. A wiki is a
+separate git repo (`<repo>.wiki.git`) with no PR flow, so it's handled on its
+own: `detect-stack.sh` derives `harness.wiki_url` + `harness.wiki_source` (a
+`docs/` dir), `scripts/build-wiki.sh` compiles the docs into flat wiki pages
+(`Home`, `_Sidebar`, links rewritten), and `/ai-harness:sync-wiki` clones the
+wiki, regenerates it, and pushes. The in-repo docs stay the source of truth — the
+wiki is generated, never hand-edited. For unattended publishing, `setup-cicd` can
+add `ci-templates/github/wiki.yml` (publishes on push to the default branch using
+the built-in token). Pushing to a `.wiki.git` remote's default branch is exempt
+from the PR-by-default guard, since wikis have no pull requests.
 
 ## Using other AI tools (Codex / Cursor / Copilot)
 

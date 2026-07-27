@@ -105,6 +105,11 @@ check "$GB" "$(bashp 'git push origin main')"              block "push to main"
 check "$GB" "$(bashp 'git push origin master')"            block "push to master"
 check "$GB" "$(bashp 'git push origin feature/x')"         allow "push to feature branch"
 check "$GB" "$(bashp 'git push origin maintenance')"       allow "push to 'maintenance' (not main)"
+# separator-boundary evasion (a ; or && right after the branch name)
+check "$GB" "$(bashp 'git push origin master;:')"          block "push to master; (separator evasion)"
+check "$GB" "$(bashp 'git push origin master&&echo hi')"   block "push to master&& (separator evasion)"
+# comment cannot smuggle the wiki exemption onto a normal repo push
+check "$GB" "$(bashp 'git push origin master # x/y.wiki.git')" block "comment cannot fake wiki exemption"
 
 echo "== regression: broadened secret-read/exfil coverage =="
 check "$GB" "$(bashp 'grep SECRET .env')"                  block "grep .env"

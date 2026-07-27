@@ -30,6 +30,14 @@ placeholders.
    for the stack (e.g. `actions/setup-node`, `actions/setup-python`,
    `actions/setup-go`). Pin third-party actions to a version.
 
+3b. **Wiki workflow (GitHub only).** If `harness.host` is `github` and
+   `harness.wiki_url` is non-empty, also offer `ci-templates/github/wiki.yml` →
+   `.github/workflows/wiki.yml`, substituting `{{DEFAULT_BRANCH}}` from
+   `harness.default_branch` and `{{DOCS_DIR}}` from `harness.wiki_source`. Tell
+   the user it needs `.harness/build-wiki.sh` committed (run `/ai-harness:adapt-repo`
+   first) — the workflow fails loudly otherwise. It uses the built-in token; no
+   extra secret.
+
 4. **Optional @claude responder** (GitHub only, when `--with-claude` is in
    `$ARGUMENTS`): also write `.github/workflows/claude.yml` from the
    `ci-templates/github/claude.yml` template. Tell the user which auth to set —

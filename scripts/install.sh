@@ -23,7 +23,8 @@ echo "Installing AI harness into $TARGET (profile: $PROFILE)"
 mkdir -p "$TARGET/.harness"
 cp "$HARNESS/base/CLAUDE.base.md"      "$TARGET/.harness/CLAUDE.base.md"
 cp "$HARNESS/scripts/detect-stack.sh"  "$TARGET/.harness/detect-stack.sh"
-chmod +x "$TARGET/.harness/detect-stack.sh"
+cp "$HARNESS/scripts/build-wiki.sh"    "$TARGET/.harness/build-wiki.sh"
+chmod +x "$TARGET/.harness/detect-stack.sh" "$TARGET/.harness/build-wiki.sh"
 
 # Seed CLAUDE.md (don't clobber an existing one).
 if [ ! -f "$TARGET/CLAUDE.md" ]; then

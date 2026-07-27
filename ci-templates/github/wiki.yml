@@ -1,0 +1,49 @@
+# AI harness · publish docs/ to the GitHub Wiki on push to the default branch.
+# Requires the wiki to exist first (open the repo's Wiki tab and save one page).
+# Uses the built-in GITHUB_TOKEN — no extra secret needed. `setup-cicd` fills in
+# {{DEFAULT_BRANCH}} and {{DOCS_DIR}}.
+name: Wiki
+
+on:
+  push:
+    branches: ["{{DEFAULT_BRANCH}}"]
+    paths: ["{{DOCS_DIR}}/**"]
+
+permissions:
+  contents: write   # required to push to the <repo>.wiki.git repository
+
+concurrency:
+  group: wiki-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish-wiki:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Compile docs and publish to wiki
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCS_DIR: "{{DOCS_DIR}}"
+        run: |
+          set -euo pipefail
+          # The wiki compiler must be committed at .harness/build-wiki.sh
+          # (adapt-repo vendors it). Fail loudly rather than silently skip.
+          if [ ! -f .harness/build-wiki.sh ]; then
+            echo "::error::.harness/build-wiki.sh is missing. Run /ai-harness:adapt-repo and COMMIT .harness/ (do not gitignore it) so wiki CI can compile the docs."
+            exit 1
+          fi
+          WIKI_URL="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git"
+          git clone "$WIKI_URL" wiki
+          bash .harness/build-wiki.sh "$DOCS_DIR" wiki
+          cd wiki
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Push to the wiki's actual default branch (GitHub: master; some: main).
+          DEF="$(git symbolic-ref --short HEAD 2>/dev/null || echo master)"
+          git add -A
+          git diff --staged --quiet || git commit -m "Sync wiki from ${DOCS_DIR} (${GITHUB_SHA})"
+          git push origin "HEAD:${DEF}"

@@ -3,10 +3,10 @@
 # commands, enforce the kill switch, and scan diffs for secrets on commit/push.
 #
 # This is FRICTION for a confused or careless agent, not a sandbox for a
-# determined adversary (see README threat model). Two techniques keep false
-# positives down: (1) a quote-stripped view so text inside a -m message or echo
-# can't trip matchers; (2) command-position matching so `echo git push -f` (a
-# string) is not treated as an actual `git push`.
+# determined adversary (see README threat model). Three normalizations keep it
+# honest: (1) quote-stripping so text in a -m message/echo can't trip matchers;
+# (2) comment-stripping so a trailing `# ...` can't smuggle tokens past a gate;
+# (3) command-position matching so `echo git push -f` (a string) isn't a push.
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
@@ -16,15 +16,16 @@ harness_read_stdin
 cmd="$(harness_json command)"
 [ -z "$cmd" ] && exit 0
 
-# Quote-stripped view (removes '...' and "..." spans).
-scmd="$(printf '%s' "$cmd" | sed "s/'[^']*'//g" | sed 's/"[^"]*"//g')"
+# Strip quoted spans, then shell comments (# at start or after whitespace).
+scmd="$(printf '%s' "$cmd" | sed "s/'[^']*'//g" | sed 's/"[^"]*"//g' | sed -E 's/(^|[[:space:]])#.*$/\1/')"
 
-# cmd_has <ERE>: true if the regex matches at a COMMAND position in scmd — i.e.
-# at the start, or right after a separator (; | & && ||), allowing a leading
-# env/sudo/nice-style prefix. So `echo git push` (git after echo) does NOT match.
+# cmd_has <ERE>: matches at a COMMAND position (start or after a ; | & separator,
+# allowing a leading env/sudo/nice prefix). `echo git push` does NOT match.
 cmd_has() {
   printf '%s' "$scmd" | grep -Eq "(^|[;&|])[[:space:]]*([a-z_]+=[^[:space:]]*[[:space:]]+|env[[:space:]][^;&|]*[[:space:]]+|sudo[[:space:]]+|nice[[:space:]]+)*$1"
 }
+# B = a token boundary that also treats command separators and EOL as the end.
+B='([[:space:];&|]|$)'
 
 # 0a. Guard-file tamper protection — first, cannot be overridden. Any command
 #     referencing guard-overrides.conf that is not a pure read is denied.
@@ -50,7 +51,7 @@ fi
 
 # 1. git push safety (only when git push is an actual command).
 if cmd_has 'git[[:space:]]+([^;&|]*[[:space:]])?push'; then
-  if printf '%s' "$scmd" | grep -Eq -- '(--force([^-]|$)|[[:space:]]-f([[:space:]]|$))' \
+  if printf '%s' "$scmd" | grep -Eq -- "(--force([^-]|$)|[[:space:]]-f$B)" \
      && ! printf '%s' "$scmd" | grep -Eq -- '--force-with-lease'; then
     harness_deny "force-pushing rewrites shared history. Use '--force-with-lease' on your own branch, or open a PR instead."
   fi
@@ -60,7 +61,12 @@ if cmd_has 'git[[:space:]]+([^;&|]*[[:space:]])?push'; then
   if printf '%s' "$scmd" | grep -Eq -- '(push[^|;&]*[[:space:]]:[^[:space:]]|--delete)'; then
     harness_deny "deleting a remote branch is irreversible. Do this by hand if you're sure."
   fi
-  if printf '%s' "$scmd" | grep -Eq 'push[^|;&]*[[:space:]](\+?([^[:space:]]*:)?(main|master|develop|trunk))([[:space:]]|$)'; then
+  # A wiki (<repo>.wiki.git, pushed by URL) has no PR flow — exempt its default
+  # branch. Require an actual URL form (scheme or git@), not a bare token, and
+  # note comments were already stripped, so a trailing `# ...wiki.git` can't lie.
+  is_wiki=0
+  printf '%s' "$scmd" | grep -Eq '(https?://|git@|ssh://)[^[:space:]]*\.wiki\.git' && is_wiki=1
+  if [ "$is_wiki" = 0 ] && printf '%s' "$scmd" | grep -Eq "push[^|;&]*[[:space:]](\+?([^[:space:]]*:)?(main|master|develop|trunk))$B"; then
     harness_deny "pushing straight to a shared branch (main/master/develop/trunk) is off by default — open a PR, or a human can allow it with 'allow-command' in .harness/guard-overrides.conf."
   fi
 fi
@@ -70,15 +76,15 @@ cmd_has 'git[[:space:]]+filter-repo'   && harness_deny "history rewriting (filte
 # 2. Catastrophic recursive delete of a root / home / wildcard path.
 if cmd_has 'rm[[:space:]]' \
    && printf '%s' "$scmd" | grep -Eq 'rm[[:space:]]([^|;&]*[[:space:]])?(-[[:alnum:]]*r[[:alnum:]]*|--recursive)' \
-   && printf '%s' "$scmd" | grep -Eq '[[:space:]](--[[:space:]]+)?(/|~|\$HOME|\$\{HOME\})/?\*?([[:space:]]|$)'; then
+   && printf '%s' "$scmd" | grep -Eq "[[:space:]](--[[:space:]]+)?(/|~|\\\$HOME|\\\$\{HOME\})/?\*?$B"; then
   harness_deny "refusing a recursive delete against a root/home/wildcard path."
 fi
 
 # 3. Reading / copying / exfiltrating secret files (reader at command position,
 #    secret path referenced anywhere in the command).
 if cmd_has '(cat|less|more|head|tail|bat|xxd|od|hexdump|strings|base64|printenv|env|grep|egrep|fgrep|rg|awk|sed|cut|sort|uniq|tr|cp|mv|rsync|scp|tar|zip|gzip|curl|wget|nc|python|python3|perl|ruby|node|dd)[[:space:]]' \
-   && printf '%s' "$scmd" | grep -Eiq '(\.env([[:space:]./]|$)|(^|/)\.envrc([[:space:]]|$)|id_(rsa|ed25519|dsa)|\.pem([[:space:]]|$)|service[-_]?account[^[:space:]]*\.json|(^|/)credentials|\.ssh/|\.aws/credentials|(^|/)\.npmrc|(^|/)\.netrc|(^|/)\.pgpass|\.tfstate)'; then
-  if ! printf '%s' "$scmd" | grep -Eiq '\.env\.(example|sample|template|dist|defaults?)([[:space:]]|$)'; then
+   && printf '%s' "$scmd" | grep -Eiq "(\.env([[:space:]./;&|]|\$)|(^|/)\.envrc$B|id_(rsa|ed25519|dsa)|\.pem$B|service[-_]?account[^[:space:]]*\.json|(^|/)credentials|\.ssh/|\.aws/credentials|(^|/)\.npmrc|(^|/)\.netrc|(^|/)\.pgpass|\.tfstate)"; then
+  if ! printf '%s' "$scmd" | grep -Eiq "\.env\.(example|sample|template|dist|defaults?)$B"; then
     harness_deny "reading, copying, or archiving a secret/credential file is not allowed. If a human needs it, they can access it directly."
   fi
 fi

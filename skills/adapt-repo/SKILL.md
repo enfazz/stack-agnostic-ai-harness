@@ -36,8 +36,12 @@ Profile requested: `$ARGUMENTS` (default `supervised` if empty).
    mkdir -p .harness
    cp "${CLAUDE_PLUGIN_ROOT}/base/CLAUDE.base.md" .harness/CLAUDE.base.md
    cp "${CLAUDE_PLUGIN_ROOT}/scripts/detect-stack.sh" .harness/detect-stack.sh
-   chmod +x .harness/detect-stack.sh
+   cp "${CLAUDE_PLUGIN_ROOT}/scripts/build-wiki.sh"   .harness/build-wiki.sh
+   chmod +x .harness/detect-stack.sh .harness/build-wiki.sh
    ```
+   **Commit `.harness/`** (do not gitignore it) — it's the self-contained harness
+   config, and the wiki CI reads `.harness/build-wiki.sh` from the checkout.
+   (`build-wiki.sh` is what the optional wiki CI and `/ai-harness:sync-wiki` use.)
    Add `.harness/` to the repo's `.gitignore` unless the team wants it tracked.
 
 4. **Write/merge `CLAUDE.md`** at repo root. If it exists, append a clearly
