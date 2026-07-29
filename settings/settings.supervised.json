@@ -20,9 +20,15 @@
       "Bash(go test *)",
       "Bash(go vet *)",
       "Bash(cargo *)",
-      "Bash(gh pr *)",
       "Bash(gh issue *)",
-      "Bash(glab mr *)"
+      "Bash(gh pr view*)",
+      "Bash(gh pr diff*)",
+      "Bash(gh pr list*)",
+      "Bash(gh pr checks*)",
+      "Bash(gh pr status*)",
+      "Bash(glab mr view*)",
+      "Bash(glab mr diff*)",
+      "Bash(glab mr list*)"
     ],
     "deny": [
       "Read(.env)",
@@ -49,6 +55,11 @@
       "Write(**/.harness/guard-overrides.conf)",
       "Bash(gh pr merge*)",
       "Bash(glab mr merge*)"
+    ],
+    "ask": [
+      "Bash(gh pr create*)",
+      "Bash(git push*)",
+      "Bash(glab mr create*)"
     ]
   }
 }

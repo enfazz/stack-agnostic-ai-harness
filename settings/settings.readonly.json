@@ -21,6 +21,11 @@
       "Read(**/.aws/**)",
       "Edit(**/.harness/guard-overrides.conf)",
       "Write(**/.harness/guard-overrides.conf)"
+    ],
+    "ask": [
+      "Bash(gh pr create*)",
+      "Bash(git push*)",
+      "Bash(glab mr create*)"
     ]
   }
 }

@@ -34,11 +34,15 @@ default, no force-push, no destructive/deploy commands without approval.
    co-author trailer (`Co-Authored-By: Claude`/`Codex`/etc.) or "Generated with"
    line — commit under the human's git identity only.
 
-8. **Open a PR/MR.** Push the branch and open a pull/merge request via the host's
-   CLI/API (`gh pr create` for GitHub; `glab mr create` for GitLab; the Bitbucket
-   API for Bitbucket). Fill title + body: what changed, why, how it was verified
-   (paste the gate result), and any follow-ups. **Do not merge** — leave it for
-   human review unless the user explicitly authorizes auto-merge.
+8. **Push + open a PR/MR — only if the user asked you to deliver.** Invoking this
+   skill (or "ship this" / "open a PR") is that authorization; if the user only
+   asked you to *implement*, stop after step 7 with the branch committed and
+   report it's ready to push — do not push. When authorized, push the branch and
+   open a pull/merge request via the host's CLI/API (`gh pr create`;
+   `glab mr create`; the Bitbucket API). The push and PR-create commands will
+   still prompt for confirmation per the harness rule — that is expected, not a
+   failure. Fill title + body: what changed, why, how it was verified (paste the
+   gate result), follow-ups. **Never merge** — leave it for human review.
 
 ## Output
 

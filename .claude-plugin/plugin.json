@@ -1,7 +1,7 @@
 {
   "name": "ai-harness",
   "description": "Portable, stack- and domain-agnostic engineering harness: adapt to any repo, run its gate, write tests & docs, set up CI/CD, and ship reviewed PRs with minimal involvement.",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "author": {
     "name": "Kiryl Novitskiy"
   },

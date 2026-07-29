@@ -11,7 +11,6 @@
       "Bash(git switch *)",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(git push origin *)",
       "Bash(npm run *)",
       "Bash(npm ci)",
       "Bash(pnpm *)",
@@ -22,9 +21,15 @@
       "Bash(pytest *)",
       "Bash(go test *)",
       "Bash(cargo *)",
-      "Bash(gh pr *)",
       "Bash(gh issue *)",
-      "Bash(glab mr *)"
+      "Bash(gh pr view*)",
+      "Bash(gh pr diff*)",
+      "Bash(gh pr list*)",
+      "Bash(gh pr checks*)",
+      "Bash(gh pr status*)",
+      "Bash(glab mr view*)",
+      "Bash(glab mr diff*)",
+      "Bash(glab mr list*)"
     ],
     "deny": [
       "Read(.env)",
@@ -53,6 +58,11 @@
       "Edit(**/.harness/guard-overrides.conf)",
       "Write(**/.harness/guard-overrides.conf)",
       "Bash(glab mr merge*)"
+    ],
+    "ask": [
+      "Bash(gh pr create*)",
+      "Bash(git push*)",
+      "Bash(glab mr create*)"
     ]
   }
 }

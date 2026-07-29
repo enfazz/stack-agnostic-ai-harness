@@ -57,9 +57,15 @@ These are enforced by harness hooks; follow them so hooks never have to interven
 - **Never commit secrets.** No `.env`, credential files, private keys, tokens,
   `*.pem`, `id_rsa`, service-account JSON, or data dumps. If one is already
   tracked, flag it — don't propagate it.
-- **PR by default.** Do work on a branch and open a pull/merge request for
-  review. Push straight to a shared/default branch only when the project's own
-  rules explicitly say to, and only after a green gate.
+- **Push and PRs are user-triggered only.** Never run `git push` or open a
+  pull/merge request on your own initiative. Do so ONLY when the user explicitly
+  asks for it in the current session (e.g. "push", "open a PR"). Otherwise, after
+  committing, stop and report that the branch is ready — do not push. (The
+  harness also gates `git push` and PR/MR creation to require a confirmation
+  prompt, so these never run unattended.)
+- **PR by default.** When the user does ask you to deliver, work on a branch and
+  open a pull/merge request for review. Push straight to a shared/default branch
+  only when the project's own rules explicitly say to, and only after a green gate.
 - **Never force-push a shared branch, never rewrite published history, never
   hard-reset away others' work.**
 - Commit in coherent units with clear messages. Stage only files belonging to

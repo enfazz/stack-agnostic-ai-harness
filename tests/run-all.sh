@@ -41,6 +41,22 @@ if grep -qi 'update docs before you push' "$HARNESS/base/CLAUDE.base.md"; then e
 if grep -rIlq 'trailer the harness configures\|repo.s co-author trailer\|co-author trailer to append' "$HARNESS/base" "$HARNESS/skills" "$HARNESS/agents" 2>/dev/null; then
   echo "FAIL a rule still instructs ADDING a co-author trailer"; FAIL=1
 else echo "ok   no rule instructs adding a co-author trailer"; fi
+if grep -qi 'user-triggered only' "$HARNESS/base/CLAUDE.base.md"; then echo "ok   base gates push/PR to explicit user input"; else echo "FAIL base missing push/PR user-triggered rule"; FAIL=1; fi
+if [ "$HAVE_PY" = 1 ]; then
+  if python3 - "$HARNESS" <<'PY'
+import json, sys, glob, os
+root = sys.argv[1]; bad = 0
+for f in glob.glob(f"{root}/settings/settings.*.json"):
+    perm = json.load(open(f)).get("permissions", {})
+    if "Bash(git push*)" not in perm.get("ask", []):
+        print("   missing push ask-gate in", os.path.basename(f)); bad = 1
+    if any("git push" in a for a in perm.get("allow", [])):
+        print("   push is auto-allowed in", os.path.basename(f)); bad = 1
+sys.exit(bad)
+PY
+  then echo "ok   push/PR-create require a prompt in every profile (never auto-allowed)"
+  else echo "FAIL a profile auto-allows push or lacks the push ask-gate"; FAIL=1; fi
+fi
 
 echo
 echo "### Shell syntax (bash -n)"
