@@ -70,9 +70,10 @@ Profile requested: `$ARGUMENTS` (default `supervised` if empty).
    `.claude/settings.json` already exists, merge — union the allow lists, keep
    existing `defaultMode` unless the user asked to change it.
 
-6. **Attribution.** Ensure agent-authored commits are attributable: note in
-   `CLAUDE.md` the co-author trailer to append to commit messages. Do not change
-   the user's global git identity.
+6. **Commit hygiene.** Note in `CLAUDE.md` that commits use the human's git
+   identity with clear, human-style messages and **no AI co-author trailers**
+   (`Co-Authored-By: Claude`/`Codex`/etc. or "Generated with" lines). Do not
+   change the user's global git identity.
 
 6b. **Guard overrides (only if needed).** If the repo legitimately tracks files
    the secret guard would block (e.g. `fixtures/*.pem` test certificates),

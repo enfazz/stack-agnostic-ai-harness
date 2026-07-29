@@ -29,8 +29,10 @@ default, no force-push, no destructive/deploy commands without approval.
 6. **Gate.** Run `/ai-harness:run-gate`. Do not proceed until it is green (or
    report precisely what is unverified and why, and stop for the human).
 
-7. **Commit** in coherent units with clear messages and the repo's co-author
-   trailer. Stage only files belonging to this change (`git status` first).
+7. **Commit** in coherent units with clear, human-style messages. Stage only
+   files belonging to this change (`git status` first). Do **not** add any AI
+   co-author trailer (`Co-Authored-By: Claude`/`Codex`/etc.) or "Generated with"
+   line — commit under the human's git identity only.
 
 8. **Open a PR/MR.** Push the branch and open a pull/merge request via the host's
    CLI/API (`gh pr create` for GitHub; `glab mr create` for GitLab; the Bitbucket

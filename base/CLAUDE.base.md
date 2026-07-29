@@ -38,10 +38,15 @@ a decision is genuinely the user's to make.
   why and what remains unverified. A red gate is not done.
 - Add or update tests for behavior you change (`write-tests` skill).
 
-## Documentation is part of done
+## Documentation is part of done — update docs before you push
 
-- When a change alters user-visible behavior, public API, config, setup, or
-  workflow, update the owning docs in the same change (`write-docs` skill).
+- **Before every push, review the docs against your change and update them to
+  match.** When a change alters user-visible behavior, public API, config,
+  setup, workflow, or commands, update the owning docs in the same change
+  (`write-docs` skill) — never push code whose docs have gone stale.
+- Run the project's documentation check before pushing if it has one — e.g.
+  `npm run check:docs` (or whatever the detector reports as the docs command);
+  a failing docs check blocks the push just like a failing test.
 - Keep docs accurate to the code, not to the request. Verify claims against the
   implementation.
 
@@ -62,7 +67,9 @@ These are enforced by harness hooks; follow them so hooks never have to interven
 - Do not run destructive or irreversible commands (mass delete, `db drop`,
   infra `apply`/`deploy`, `terraform apply`) without explicit approval.
 
-## Commit message trailer
+## No AI co-author trailers
 
-End commit messages you author with the co-author trailer the harness configures
-for the project, so machine-authored changes are attributable.
+Do **not** add any AI/assistant co-author trailer to commits — no
+`Co-Authored-By: Claude`, `Codex`, `Copilot`, or similar, and no
+"Generated with" attribution lines. Commits are authored under the human's git
+identity only. Write a clear, human-style commit message describing the change.

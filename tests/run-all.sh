@@ -35,6 +35,14 @@ PY
 fi
 
 echo
+echo "### Convention invariants (harness rules baked into base/CLAUDE.base.md)"
+if grep -q '^## No AI co-author trailers' "$HARNESS/base/CLAUDE.base.md"; then echo "ok   base forbids AI co-author trailers"; else echo "FAIL base missing no-co-author-trailers rule"; FAIL=1; fi
+if grep -qi 'update docs before you push' "$HARNESS/base/CLAUDE.base.md"; then echo "ok   base requires docs-update-before-push"; else echo "FAIL base missing docs-before-push rule"; FAIL=1; fi
+if grep -rIlq 'trailer the harness configures\|repo.s co-author trailer\|co-author trailer to append' "$HARNESS/base" "$HARNESS/skills" "$HARNESS/agents" 2>/dev/null; then
+  echo "FAIL a rule still instructs ADDING a co-author trailer"; FAIL=1
+else echo "ok   no rule instructs adding a co-author trailer"; fi
+
+echo
 echo "### Shell syntax (bash -n)"
 for f in "$HARNESS"/scripts/*.sh "$HARNESS"/hooks/*.sh "$HARNESS"/tests/*.sh; do
   if bash -n "$f" 2>/dev/null; then echo "ok   ${f#"$HARNESS"/}"
