@@ -3,6 +3,9 @@
   "owner": {
     "name": "Kiryl Novitskiy"
   },
+  "metadata": {
+    "description": "Home of the AI harness — one portable, stack- and domain-agnostic Claude Code plugin. Adapt it to any repository for ready-to-go skills that ship code, tests, docs, CI/CD, PR reviews, and dependency-impact analysis with minimal involvement."
+  },
   "plugins": [
     {
       "name": "ai-harness",
