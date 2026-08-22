@@ -205,6 +205,15 @@ The harness is Claude Code-native but its content is plain Markdown. Run
 [code-agnostic](https://github.com/dhvcc/code-agnostic) hub, then
 `code-agnostic apply` compiles them into each editor's native layout.
 
+## Docs
+
+- [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md) — install modes, first run, permission profiles, day-to-day workflow.
+- [docs/SKILLS.md](docs/SKILLS.md) — reference table of every skill and agent.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — the five layers and why they're shaped this way.
+
+These live under `docs/` because that's also this repo's wiki source — see
+[GitHub / GitLab wiki](#github--gitlab-wiki) below.
+
 ## License
 
 MIT.
