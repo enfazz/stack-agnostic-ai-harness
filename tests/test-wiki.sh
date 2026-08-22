@@ -70,6 +70,27 @@ printf '# Configuration\n' > "$QD/configuration.md"
 bash "$BUILD" "$QD" "$QW" >/dev/null 2>&1
 grep -q '(configuration#install)' "$QW/a.md" && ok "query-string link rewritten" || bad "query-string link rewritten"
 
+echo "== build-wiki.sh compiles this repo's own docs/ cleanly (no broken links, no collisions) =="
+RW="$TMP/real-wiki"; mkdir -p "$RW"; git -C "$RW" init -q
+OUT="$(bash "$BUILD" "$HARNESS/docs" "$RW" 2>&1)"
+echo "  ($OUT)"
+printf '%s' "$OUT" | grep -q 'WARNING: duplicate page basenames' && bad "no basename collisions in docs/" || ok "no basename collisions in docs/"
+# Every intra-wiki `](target#frag)` link must resolve to an actual compiled page
+# (build-wiki.sh strips .md unconditionally, so a link to a page that was never
+# there compiles "successfully" into a dangling [[link]] — this check is the
+# only thing that catches that).
+broken=0
+for f in "$RW"/*.md; do
+  [ "$(basename "$f")" = "_Sidebar.md" ] && continue
+  while IFS= read -r target; do
+    case "$target" in http://*|https://*|"") continue ;; esac
+    page="${target%%#*}"
+    [ -f "$RW/$page.md" ] || { echo "  dangling link in $(basename "$f"): ($target)"; broken=1; }
+  done < <(grep -oE '\]\([^)]+\)' "$f" | sed -E 's/^\]\((.*)\)$/\1/')
+done
+[ "$broken" -eq 0 ] && ok "no dangling intra-wiki links in compiled docs/" || bad "no dangling intra-wiki links in compiled docs/"
+have "$RW/ARCHITECTURE.md" "docs/ARCHITECTURE.md compiled"
+
 echo
 echo "wiki: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]
