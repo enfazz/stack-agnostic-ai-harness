@@ -205,6 +205,11 @@ The harness is Claude Code-native but its content is plain Markdown. Run
 [code-agnostic](https://github.com/dhvcc/code-agnostic) hub, then
 `code-agnostic apply` compiles them into each editor's native layout.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the dev loop, the gate command, and
+how to extend the harness.
+
 ## License
 
 MIT.
